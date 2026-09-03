@@ -1,0 +1,21 @@
+[workspace]
+authors = ["HiroyukiShinnou <hiroyuki.shinnou.0828@vc.ibaraki.ac.jp>"]
+channels = ["conda-forge"]
+name = "ARAG"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+chat-basic = "streamlit run chatbot_v1_basic.py"
+chat-mcp = "streamlit run chatbot_v2_mcp.py"
+
+[dependencies]
+python = "3.12.*"
+nodejs = "22.*"
+
+[pypi-dependencies]
+streamlit = ">=1.38"
+mlx = ">=0.18"
+mlx-lm = ">=0.19"
+mcp = ">=1.2"
+python-dotenv = ">=1.0"
