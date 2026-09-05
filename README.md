@@ -40,7 +40,8 @@ Ollama や LM Studio は使わず、`mlx-lm` を介して Hugging Face Hub の�
 ## セットアップ
 
 ```bash
-cd "/Volumes/Extened SDD/home2/ARAG"
+git clone https://github.com/shinnou/qwen3-mlx-chatbot.git
+cd qwen3-mlx-chatbot
 
 # 依存関係のインストール
 pixi install
