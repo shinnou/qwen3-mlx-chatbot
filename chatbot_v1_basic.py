@@ -1,6 +1,6 @@
-"""Qwen3-32B (MLX 4bit) を使ったシンプルな Streamlit チャットボット。
+"""Qwen3-32B (MLX 8bit) を使ったシンプルな Streamlit チャットボット。
 
-Hugging Face 上の MLX 4bit 量子化済みモデル (mlx-community/Qwen3-32B-4bit) を
+Hugging Face 上の MLX 8bit 量子化済みモデル (mlx-community/Qwen3-32B-8bit) を
 mlx-lm でロードし、Apple Silicon の GPU (Metal) 上で推論する。
 Ollama / LM Studio は使わず、HuggingFace Hub から直接モデルを取得する。
 
@@ -29,12 +29,12 @@ from mlx_lm.sample_utils import make_sampler
 
 load_dotenv()
 
-MODEL_ID = os.environ.get("MODEL_ID", "mlx-community/Qwen3-32B-4bit")
+MODEL_ID = os.environ.get("MODEL_ID", "mlx-community/Qwen3-32B-8bit")
 
 UI_UPDATE_INTERVAL_SEC = 0.12  # ストリーミング表示の最小更新間隔（これより短い間隔では再描画しない）
 
 st.set_page_config(page_title="Qwen3-32B Chatbot", page_icon="🤖")
-st.title("🤖 Qwen3-32B (MLX 4bit) Chatbot")
+st.title("🤖 Qwen3-32B (MLX 8bit) Chatbot")
 st.caption(f"model: `{MODEL_ID}`")
 
 

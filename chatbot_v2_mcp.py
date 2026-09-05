@@ -1,4 +1,4 @@
-"""Qwen3-32B (MLX 4bit) + Brave Search MCP を使った Streamlit チャットボット。
+"""Qwen3-32B (MLX 8bit) + Brave Search MCP を使った Streamlit チャットボット。
 
 chatbot_v1_basic.py をベースに、最新情報が必要なときはモデル自身が
 ツール呼び出し (Qwen の Hermes 形式 <tool_call> タグ) を発行し、
@@ -38,7 +38,7 @@ from mcp_brave_client import brave_web_search
 
 load_dotenv()
 
-MODEL_ID = os.environ.get("MODEL_ID", "mlx-community/Qwen3-32B-4bit")
+MODEL_ID = os.environ.get("MODEL_ID", "mlx-community/Qwen3-32B-8bit")
 
 UI_UPDATE_INTERVAL_SEC = 0.12  # ストリーミング表示の最小更新間隔
 
@@ -100,7 +100,7 @@ SYSTEM_PROMPT_DEFAULT = (
 )
 
 st.set_page_config(page_title="Qwen3-32B Chatbot (Brave MCP)", page_icon="🔎")
-st.title("🔎 Qwen3-32B (MLX 4bit) + Brave Search MCP Chatbot")
+st.title("🔎 Qwen3-32B (MLX 8bit) + Brave Search MCP Chatbot")
 st.caption(f"model: `{MODEL_ID}`")
 
 

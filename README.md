@@ -1,6 +1,6 @@
-# Qwen3-32B (MLX 4bit) Streamlit Chatbot
+# Qwen3-32B (MLX 8bit) Streamlit Chatbot
 
-Mac (Apple Silicon) 上で、Hugging Face から直接取得した **Qwen3-32B の4bit量子化モデル**を
+Mac (Apple Silicon) 上で、Hugging Face から直接取得した **Qwen3-32B の8bit量子化モデル**を
 [MLX](https://github.com/ml-explore/mlx) で実行する Streamlit チャットボットです。
 Ollama や LM Studio は使わず、`mlx-lm` を介して Hugging Face Hub のモデルをそのままロードします。
 
@@ -27,7 +27,7 @@ Ollama や LM Studio は使わず、`mlx-lm` を介して Hugging Face Hub の�
 ## 必要要件
 
 - Mac (Apple Silicon: M1/M2/M3/M4 系)、[pixi](https://pixi.sh) がインストール済みであること
-- 統合メモリ 32GB 以上を推奨（Qwen3-32B の4bit量子化モデルを常駐させるため）
+- 統合メモリ 48GB 以上を推奨（Qwen3-32B の8bit量子化モデル、約34GBを常駐させるため）
 - インターネット接続（初回のモデルダウンロード、および v2 での Web 検索時）
 - v2 を使う場合: [Brave Search API](https://brave.com/search/api/) のAPIキー
 
@@ -52,16 +52,25 @@ cp .env.example .env
 `.env` を編集し、必要に応じて以下を設定します。
 
 ```ini
-# 使用するモデル (Hugging Face の MLX 4bit 量子化モデル)
-MODEL_ID=mlx-community/Qwen3-32B-4bit
+# 使用するモデル (Hugging Face の MLX 8bit 量子化モデル)
+MODEL_ID=mlx-community/Qwen3-32B-8bit
 
 # v2 (MCP版) を使う場合のみ必須
 BRAVE_API_KEY=your_brave_api_key_here
 ```
 
 `MODEL_ID` を変更すれば、`mlx-community` が配布している他の量子化モデル
-（例: `mlx-community/Qwen3-30B-A3B-4bit`, `mlx-community/Qwen3-8B-4bit` など）
-に差し替えることもできます。
+（例: `mlx-community/Qwen3-32B-4bit`, `mlx-community/Qwen3-30B-A3B-4bit`,
+`mlx-community/Qwen3-8B-4bit` など）に差し替えることもできます。
+
+> **注意:** `mlx-lm` は**テキスト専用**の推論ライブラリです。差し替える際は、
+> Hugging Face のモデルカードで `pipeline_tag` が `text-generation` であること、
+> かつ `config.json` の `model_type` が現在の `mlx-lm` でサポートされている
+> アーキテクチャ（`qwen3`, `qwen3_moe` など。`pixi run python -c "import os,mlx_lm;
+> print(os.listdir(os.path.join(os.path.dirname(mlx_lm.__file__),'models')))"` で確認可能）
+> であることを事前に確認してください。`image-text-to-text` などのVLM（画像対応）モデルや、
+> リリース直後で `mlx-lm`未対応の新アーキテクチャ（例: `qwen3_5`）を指定すると、
+> `_get_classes` の `ValueError` でモデルロードに失敗します。
 
 ---
 
@@ -85,7 +94,14 @@ pixi run chat-basic
 - temperature / top_p
 - thinking モードの有効化（Qwen3 の思考過程を出力するモード）
 - システムプロンプト
+- 「生成速度 (tok/s) を表示」チェックボックス（prefill/generation の速度とピークメモリ使用量を表示）
 - 「会話をリセット」ボタン
+
+**体感速度について:** 会話ターンをまたいで KV prompt cache を再利用することで、
+毎ターン会話履歴全体を再計算する無駄を省いています。ストリーミング表示も
+一定間隔（0.12秒）で間引いて再描画するため、UI更新自体が生成速度のボトルネックに
+なりにくくなっています。システムプロンプトを編集するとキャッシュがリセットされ、
+その次の発言だけ通常より時間がかかります。
 
 ### v2: Brave Search MCP 対応チャットボット
 
@@ -101,19 +117,29 @@ v1 の機能に加えて、サイドバーに以下が追加されます。
 
 **動作の流れ:**
 
-1. ユーザーが質問を入力すると、モデルには「Brave Web検索」ツールの
-   存在が伝えられます（Qwen3 のチャットテンプレートの `tools` 機構を使用）。
-2. モデルが「最新情報の確認が必要」と判断した場合、回答の代わりに
+1. ユーザーが質問を入力すると、システムプロンプトの先頭に現在の日付
+   （JST、日単位）が自動的に埋め込まれます。これにより「今日」「現在」
+   「最新」を含む質問や日によって値が変わる事実について、モデルが
+   検索の要否と検索クエリ（日付を含む具体的な語句）を正しく判断できます。
+   ※分単位の時刻までは含めません。含めると毎ターン内容が変わり
+   KV prompt cache が再利用できなくなるためです。
+2. あわせてモデルには「Brave Web検索」ツールの存在が伝えられます
+   （Qwen3 のチャットテンプレートの `tools` 機構を使用）。
+3. モデルが「最新情報の確認が必要」と判断した場合、回答の代わりに
    `<tool_call>{"name": "brave_web_search", "arguments": {...}}</tool_call>`
    という形式でツール呼び出しを出力します。
-3. アプリ側がこれを検出し、`mcp_brave_client.py` 経由で
+4. アプリ側がこれを検出し、`mcp_brave_client.py` 経由で
    `npx @modelcontextprotocol/server-brave-search` を起動して実際に検索を実行します。
-4. 検索結果を会話履歴に `tool` ロールとして追加し、モデルに最終回答を再生成させます。
-5. 検索が使われた場合、画面上に「🔎 検索クエリ: ...」という折りたたみ表示で
+5. 検索結果を会話履歴に `tool` ロールとして追加し、モデルに最終回答を再生成させます。
+6. 検索が使われた場合、画面上に「🔎 検索クエリ: ...」という折りたたみ表示で
    検索クエリと生の検索結果を確認できます。
 
 質問が最新情報を必要としない場合（雑談や一般知識の質問など）は、
 モデルはツールを呼ばずに直接回答します。すべての質問で検索するわけではありません。
+
+なお Brave Search は汎用のWeb検索であり専用の天気APIではないため、
+天気の気温など動的な数値はページのスニペットに含まれず、
+完全にリアルタイムでない場合があります。
 
 ---
 
@@ -126,14 +152,15 @@ v1 の機能に加えて、サイドバーに以下が追加されます。
 | メモリ不足でクラッシュする | サイドバーで「最大生成トークン数」を下げる、または `MODEL_ID` をより小さいモデル（例: `Qwen3-8B-4bit`）に変更する |
 | `npx` が Brave Search サーバーを起動できない | `pixi run node --version` で Node.js (v22系) が入っているか確認する |
 | モデルが検索すべき場面で検索しない/しすぎる | サイドバーの「システムプロンプト」を編集し、検索を使う条件を明示的に指示する |
+| `mlx_lm/utils.py` の `_get_classes` で `ValueError` が出てモデルロードに失敗する | `MODEL_ID` に指定したモデルのアーキテクチャが未対応（VLM＝画像対応モデルだったり、リリース直後で `mlx-lm` が追従できていない新アーキテクチャだったりする）。HFのモデルカードで `pipeline_tag: text-generation` かつ `model_type` が対応済みか確認し、対応済みのモデル（例: `mlx-community/Qwen3-32B-8bit`）に変更する（上記「セットアップ」内の注意書き参照） |
 
 ---
 
 ## 補足: なぜ MLX / なぜこの構成か
 
-- Mac (Apple Silicon) では `transformers` + `bitsandbytes` の4bit量子化はCUDA専用のため動作しません。
+- Mac (Apple Silicon) では `transformers` + `bitsandbytes` の量子化はCUDA専用のため動作しません。
   そのため、Apple Silicon 向けにネイティブ最適化された **MLX** (`mlx-lm`) を採用し、
-  Hugging Face 上で事前に4bit量子化済みの `mlx-community/Qwen3-32B-4bit` をそのままロードしています。
+  Hugging Face 上で事前に量子化済みの `mlx-community/Qwen3-32B-8bit` をそのままロードしています。
   （Ollama や LM Studio のような専用アプリは使わず、Pythonから直接 Hugging Face Hub のモデルを扱います。）
 - v2 の検索連携は、常に検索するのではなく Qwen3 のネイティブな **tool calling**（Hermes形式の
   `<tool_call>` タグ）を利用し、モデル自身に検索の要否を判断させる設計にしています。
